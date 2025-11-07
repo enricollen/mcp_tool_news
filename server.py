@@ -1,5 +1,6 @@
 """
-simple mcp server for rss parsing
+mcp server for rss parsing
+https://pypi.org/project/rss-parser/
 """
 
 from fastmcp import FastMCP
@@ -9,7 +10,7 @@ from typing import List, Dict, Any
 from utils.text_sanitizer import sanitize_title, beautify_description, format_article_summary
 
 # create mcp server
-mcp = FastMCP("simple-rss-server")
+mcp = FastMCP("rss-feeds-parser-server")
 
 # rss feed collections
 RSS_FEEDS = {

@@ -1,4 +1,3 @@
 mcp
 rss-parser
 requests
-uvicorn
