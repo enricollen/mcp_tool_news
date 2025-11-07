@@ -22,11 +22,11 @@ def get_all_news_summary(
     rss_url: str = "https://www.corriere.it/feed-hp/homepage.xml",
     limit: int = 10,
     title_limit: int = 100,
-    desc_limit: int = 300,
-    content_limit: int = 1000,
+    desc_limit: int = 500,
+    content_limit: int = 800,
     scrape_content: bool = True,
-    summarize_content: bool = False,
-    summary_method: str = 'auto',
+    summarize_content: bool = True,
+    summary_method: str = 'keyword',
     today_only: bool = True
 ) -> List[Dict[str, Any]]:
     """
