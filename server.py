@@ -397,7 +397,10 @@ Then provide:
 Provide a professional media analysis suitable for journalists, researchers, or media professionals.
 """
 
+# export the mcp instance for cloud deployment
+__all__ = ["mcp"]
+
 if __name__ == "__main__":
-    # run the server
+    # run the server locally
     print("Starting RSS feed MCP server...")
-    mcp.run(transport="streamable-http")
+    mcp.run()
