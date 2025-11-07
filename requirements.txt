@@ -1,3 +1,4 @@
-newsapi-python
-python-dotenv
 mcp
+rss-parser
+requests
+uvicorn
