@@ -1,190 +1,175 @@
 """
-mcp server for rss parsing
+mcp server for rss news parsing with content scraping
 https://pypi.org/project/rss-parser/
 """
 
-from fastmcp import FastMCP
-from rss_parser import RSSParser
-from requests import get
+from mcp.server.fastmcp import FastMCP
 from typing import List, Dict, Any
-from utils.text_sanitizer import sanitize_title, beautify_description
+
+from utils.text_sanitizer import is_today_news, create_news_summary
+from utils.rss_helpers import (
+    extract_field_content,
+    get_article_link,
+    parse_date_safely,
+    fetch_rss_feed
+)
 
 # create mcp server
 mcp = FastMCP("rss-feeds-parser-server")
 
-# rss feed collections
-RSS_FEEDS = {
-    "italian_news": {
-        "name": "Italian News Feeds",
-        "description": "Major Italian news sources",
-        "feeds": [
-            {"name": "ANSA", "url": "https://www.ansa.it/sito/notizie/topnews/topnews_rss.xml"},
-            {"name": "Corriere della Sera", "url": "https://xml2.corriereobjects.it/feed-hp/homepage.xml"},
-            {"name": "La Repubblica", "url": "https://www.repubblica.it/rss/homepage/rss2.0.xml"},
-            {"name": "Il Sole 24 Ore", "url": "https://www.ilsole24ore.com/rss/notizie.xml"},
-            {"name": "La Gazzetta dello Sport", "url": "https://www.gazzetta.it/rss/home.xml"},
-            {"name": "Sky TG24", "url": "https://tg24.sky.it/rss/tg24_homepage.xml"}
-        ]
-    },
-    "international_news": {
-        "name": "International News Feeds",
-        "description": "Global news sources in English",
-        "feeds": [
-            {"name": "BBC News", "url": "https://feeds.bbci.co.uk/news/rss.xml"},
-            {"name": "CNN", "url": "https://rss.cnn.com/rss/edition.rss"},
-            {"name": "Reuters", "url": "https://feeds.reuters.com/reuters/topNews"},
-            {"name": "Associated Press", "url": "https://feeds.apnews.com/rss/apf-topnews"},
-            {"name": "The Guardian", "url": "https://www.theguardian.com/world/rss"},
-            {"name": "NPR News", "url": "https://feeds.npr.org/1001/rss.xml"}
-        ]
-    },
-    "tech_news": {
-        "name": "Technology News Feeds",
-        "description": "Technology and startup news",
-        "feeds": [
-            {"name": "TechCrunch", "url": "https://techcrunch.com/feed/"},
-            {"name": "Hacker News", "url": "https://hnrss.org/frontpage"},
-            {"name": "Ars Technica", "url": "https://feeds.arstechnica.com/arstechnica/index"},
-            {"name": "The Verge", "url": "https://www.theverge.com/rss/index.xml"},
-            {"name": "Wired", "url": "https://www.wired.com/feed/rss"},
-            {"name": "Engadget", "url": "https://www.engadget.com/rss.xml"}
-        ]
-    },
-    "business_news": {
-        "name": "Business News Feeds",
-        "description": "Financial and business news",
-        "feeds": [
-            {"name": "Bloomberg", "url": "https://feeds.bloomberg.com/markets/news.rss"},
-            {"name": "Financial Times", "url": "https://www.ft.com/rss/home"},
-            {"name": "Wall Street Journal", "url": "https://www.wsj.com/xml/rss/3_7085.xml"},
-            {"name": "MarketWatch", "url": "https://feeds.marketwatch.com/marketwatch/topstories/"},
-            {"name": "Forbes", "url": "https://www.forbes.com/real-time/feed2/"},
-            {"name": "CNBC", "url": "https://www.cnbc.com/id/100003114/device/rss/rss.html"}
-        ]
-    },
-    "science_news": {
-        "name": "Science News Feeds", 
-        "description": "Science and research news",
-        "feeds": [
-            {"name": "Science Daily", "url": "https://www.sciencedaily.com/rss/all.xml"},
-            {"name": "Nature News", "url": "https://www.nature.com/nature.rss"},
-            {"name": "Scientific American", "url": "https://rss.sciam.com/ScientificAmerican-Global"},
-            {"name": "New Scientist", "url": "https://www.newscientist.com/feed/home/"},
-            {"name": "Phys.org", "url": "https://phys.org/rss-feed/"},
-            {"name": "Space.com", "url": "https://www.space.com/feeds/all"}
-        ]
-    }
-}
 
-@mcp.tool
-def get_all_news_summary(limit_per_category: int = 3) -> List[str]:
+@mcp.tool()
+def get_all_news_summary(
+    rss_url: str = "https://www.corriere.it/feed-hp/homepage.xml",
+    limit: int = 10,
+    title_limit: int = 100,
+    desc_limit: int = 300,
+    content_limit: int = 1000,
+    scrape_content: bool = True,
+    summarize_content: bool = False,
+    summary_method: str = 'auto',
+    today_only: bool = True
+) -> List[Dict[str, Any]]:
     """
-    get detailed summary of latest news for each topic category
+    get comprehensive news summary with date filtering, content scraping, and optional summarization
     
     args:
-        limit_per_category: maximum number of articles per category (default: 3)
-    
-    returns:
-        list of formatted news summaries organized by category
-    """
-    all_summaries = []
-    
-    for category_key, category_data in RSS_FEEDS.items():
-        category_summary = [f"\n=== {category_data['name'].upper()} ==="]
-        article_count = 0
-        
-        for feed in category_data["feeds"]:
-            if article_count >= limit_per_category:
-                break
-                
-            try:
-                response = get(feed["url"])
-                response.raise_for_status()
-                rss = RSSParser.parse(response.text)
-                
-                for item in rss.channel.items:
-                    if article_count >= limit_per_category:
-                        break
-                        
-                    # convert to string to avoid serialization issues
-                    title = str(getattr(item, 'title', ''))
-                    description = str(getattr(item, 'description', ''))
-                    link = str(getattr(item, 'link', ''))
-                    
-                    clean_title = sanitize_title(title)
-                    clean_desc = beautify_description(description)
-                    
-                    summary = f"• {clean_title}"
-                    if clean_desc:
-                        summary += f"\n  {clean_desc[:200]}..."
-                    if link:
-                        summary += f"\n  Link: {link}"
-                    summary += f"\n  Source: {feed['name']}\n"
-                    
-                    category_summary.append(summary)
-                    article_count += 1
-                    break  # one article per feed for variety
-                    
-            except Exception as e:
-                category_summary.append(f"  Error loading {feed['name']}: {str(e)}")
-        
-        all_summaries.extend(category_summary)
-    
-    return all_summaries
-
-@mcp.tool
-def get_topic_news(topic: str = "italian_news", limit: int = 10) -> List[str]:
-    """
-    get news filtered by specific topic category
-    
-    args:
-        topic: news category (italian_news, international_news, tech_news, business_news, science_news)
+        rss_url: rss feed url to parse (default: corriere della sera)
         limit: maximum number of articles to return (default: 10)
+        title_limit: maximum title length (default: 100)
+        desc_limit: maximum description length (default: 300)
+        content_limit: maximum scraped content length (default: 1000)
+        scrape_content: whether to scrape full article content from links (default: true)
+        summarize_content: whether to automatically summarize scraped content (default: false)
+        summary_method: summarization method - 'auto', 'extractive', 'keyword', or 'lead' (default: 'auto')
+        today_only: filter to show only today's news (default: true)
     
     returns:
-        list of formatted articles from the specified topic
+        list of news articles with title, description, link, date, and scraped content (optionally summarized), ordered by latest first
     """
-    if topic not in RSS_FEEDS:
-        return [f"Error: topic '{topic}' not found. Available topics: {', '.join(RSS_FEEDS.keys())}"]
-    
-    articles = []
-    category_data = RSS_FEEDS[topic]
-    total_count = 0
-    
-    for feed in category_data["feeds"]:
-        if total_count >= limit:
-            break
+    try:
+        # fetch and parse rss feed
+        rss = fetch_rss_feed(rss_url)
+        
+        articles = []
+        
+        for item in rss.channel.items:
+            # extract article fields
+            title = extract_field_content(getattr(item, 'title', ''))
+            description = extract_field_content(getattr(item, 'description', ''))
+            pub_date = extract_field_content(getattr(item, 'pub_date', ''))
+            link = get_article_link(item)
             
-        try:
-            response = get(feed["url"])
-            response.raise_for_status()
-            rss = RSSParser.parse(response.text)
+            # apply date filter if requested
+            if today_only and pub_date and not is_today_news(pub_date):
+                continue
             
-            for item in rss.channel.items:
-                if total_count >= limit:
-                    break
-                    
-                # convert to string to avoid serialization issues
-                title = str(getattr(item, 'title', ''))
-                description = str(getattr(item, 'description', ''))
-                link = str(getattr(item, 'link', ''))
-                pub_date = str(getattr(item, 'pub_date', ''))
-                
-                clean_title = sanitize_title(title)
-                clean_desc = beautify_description(description)
-                
-                article = f"Title: {clean_title}"
-                if clean_desc:
-                    article += f"\nDescription: {clean_desc}"
-                if pub_date:
-                    article += f"\nDate: {pub_date}"
-                article += f"\nSource: {feed['name']}"
-                article += "\n" + "-"*50
-                
-                articles.append(article)
-                total_count += 1
-                
-        except Exception as e:
-            articles.append(f"Error loading {feed['name']}: {str(e)}")
+            # create news summary with optional content scraping and summarization
+            news_summary = create_news_summary(
+                title=title,
+                description=description,
+                link=link,
+                pub_date=pub_date,
+                title_limit=title_limit,
+                desc_limit=desc_limit,
+                scrape_content=scrape_content,
+                content_limit=content_limit,
+                summarize_content=summarize_content,
+                summary_method=summary_method
+            )
+            
+            articles.append(news_summary)
+            
+            # stop when we have enough articles
+            if len(articles) >= limit:
+                break
+        
+        # sort by publication date (latest first)
+        articles.sort(
+            key=lambda article: parse_date_safely(article['pub_date']),
+            reverse=True
+        )
+        
+        return articles
+        
+    except Exception as e:
+        return [{"error": f"failed to fetch news: {str(e)}"}]
+
+
+@mcp.tool()
+def get_serie_a_news(
+    limit: int = 10,
+    title_limit: int = 100,
+    desc_limit: int = 300,
+    content_limit: int = 800,
+    scrape_content: bool = False,
+    summarize_content: bool = True,
+    summary_method: str = 'lead',
+    today_only: bool = True
+) -> List[Dict[str, Any]]:
+    """
+    get serie a soccer news from gazzetta dello sport with content scraping and summarization
     
-    return articles
+    args:
+        limit: maximum number of articles to return (default: 10)
+        title_limit: maximum title length (default: 100)
+        desc_limit: maximum description length (default: 300)
+        content_limit: maximum scraped content length (default: 1000)
+        scrape_content: whether to scrape full article content from links (default: true)
+        summarize_content: whether to automatically summarize scraped content (default: false)
+        summary_method: summarization method - 'auto', 'extractive', 'keyword', or 'lead' (default: 'auto')
+        today_only: filter to show only today's news (default: true)
+    
+    returns:
+        list of serie a news articles with title, description, link, date, and scraped content (optionally summarized), ordered by latest first
+    """
+    # use gazzetta dello sport serie a rss feed
+    rss_url = "https://www.gazzetta.it/dynamic-feed/rss/section/Calcio/Serie-A.xml"
+    
+    try:
+        # fetch and parse rss feed
+        rss = fetch_rss_feed(rss_url)
+        
+        articles = []
+        
+        for item in rss.channel.items:
+            # extract article fields
+            title = extract_field_content(getattr(item, 'title', ''))
+            description = extract_field_content(getattr(item, 'description', ''))
+            pub_date = extract_field_content(getattr(item, 'pub_date', ''))
+            link = get_article_link(item)
+            
+            # apply date filter if requested
+            if today_only and pub_date and not is_today_news(pub_date):
+                continue
+            
+            # create news summary with optional content scraping and summarization
+            news_summary = create_news_summary(
+                title=title,
+                description=description,
+                link=link,
+                pub_date=pub_date,
+                title_limit=title_limit,
+                desc_limit=desc_limit,
+                scrape_content=scrape_content,
+                content_limit=content_limit,
+                summarize_content=summarize_content,
+                summary_method=summary_method
+            )
+            
+            articles.append(news_summary)
+            
+            # stop when we have enough articles
+            if len(articles) >= limit:
+                break
+        
+        # sort by publication date (latest first)
+        articles.sort(
+            key=lambda article: parse_date_safely(article['pub_date']),
+            reverse=True
+        )
+        
+        return articles
+        
+    except Exception as e:
+        return [{"error": f"failed to fetch serie a news: {str(e)}"}]

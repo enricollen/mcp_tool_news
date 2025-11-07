@@ -1,3 +1,6 @@
 mcp
 rss-parser
 requests
+beautifulsoup4
+python-dateutil
+lxml
