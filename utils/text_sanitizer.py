@@ -259,20 +259,24 @@ def _try_corriere_selectors(soup: BeautifulSoup) -> str:
 def _try_gazzetta_selectors(soup: BeautifulSoup) -> str:
     """try gazzetta dello sport specific css selectors"""
     selectors = [
+        'div.content p',                    # main content div
+        '.entry-content p',                 # wordpress-style content
+        '.wp-block-post-content p',         # wordpress block content
         '.article__body p',
         '.article-body p',
         '.content__body p',
         'article .body p',
         '.text-content p',
         '#article-text p',
-        '.story__content p'
+        '.story__content p',
+        'article p'                         # fallback to any article paragraphs
     ]
     
     for selector in selectors:
         elements = soup.select(selector)
         if elements:
             paragraphs = _extract_paragraphs(elements)
-            if len(paragraphs) >= 3:
+            if len(paragraphs) >= 2:  # gazzetta articles can be shorter
                 return ' '.join(paragraphs)
     
     return ""
@@ -591,7 +595,7 @@ def create_news_summary(title: str, description: str, link: str, pub_date: str,
     return {
         "title": clean_title,
         "description": clean_desc,
-        "link": link,
-        "pub_date": pub_date,
+        # "link": link,
+        # "pub_date": pub_date,
         "scraped_content": scraped_content
     }

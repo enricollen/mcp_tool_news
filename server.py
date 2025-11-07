@@ -3,9 +3,8 @@ mcp server for rss news parsing with content scraping
 https://pypi.org/project/rss-parser/
 """
 
-from mcp.server.fastmcp import FastMCP
+from fastmcp import FastMCP
 from typing import List, Dict, Any
-
 from utils.text_sanitizer import is_today_news, create_news_summary
 from utils.rss_helpers import (
     extract_field_content,
@@ -18,7 +17,7 @@ from utils.rss_helpers import (
 mcp = FastMCP("rss-feeds-parser-server")
 
 
-@mcp.tool()
+@mcp.tool
 def get_all_news_summary(
     rss_url: str = "https://www.corriere.it/feed-hp/homepage.xml",
     limit: int = 10,
@@ -45,7 +44,7 @@ def get_all_news_summary(
         today_only: filter to show only today's news (default: true)
     
     returns:
-        list of news articles with title, description, link, date, and scraped content (optionally summarized), ordered by latest first
+        list of news articles with title, description, and scraped content (optionally summarized), ordered by latest first
     """
     try:
         # fetch and parse rss feed
@@ -78,6 +77,9 @@ def get_all_news_summary(
                 summary_method=summary_method
             )
             
+            # store pub_date temporarily for sorting
+            news_summary['_sort_date'] = pub_date
+            
             articles.append(news_summary)
             
             # stop when we have enough articles
@@ -86,9 +88,13 @@ def get_all_news_summary(
         
         # sort by publication date (latest first)
         articles.sort(
-            key=lambda article: parse_date_safely(article['pub_date']),
+            key=lambda article: parse_date_safely(article.get('_sort_date', '')),
             reverse=True
         )
+        
+        # remove temporary sort field
+        for article in articles:
+            article.pop('_sort_date', None)
         
         return articles
         
@@ -96,13 +102,13 @@ def get_all_news_summary(
         return [{"error": f"failed to fetch news: {str(e)}"}]
 
 
-@mcp.tool()
+@mcp.tool
 def get_serie_a_news(
     limit: int = 10,
     title_limit: int = 100,
-    desc_limit: int = 300,
+    desc_limit: int = 500,
     content_limit: int = 800,
-    scrape_content: bool = False,
+    scrape_content: bool = True,
     summarize_content: bool = True,
     summary_method: str = 'lead',
     today_only: bool = True
@@ -157,6 +163,9 @@ def get_serie_a_news(
                 summary_method=summary_method
             )
             
+            # store pub_date temporarily for sorting
+            news_summary['_sort_date'] = pub_date
+            
             articles.append(news_summary)
             
             # stop when we have enough articles
@@ -165,9 +174,13 @@ def get_serie_a_news(
         
         # sort by publication date (latest first)
         articles.sort(
-            key=lambda article: parse_date_safely(article['pub_date']),
+            key=lambda article: parse_date_safely(article.get('_sort_date', '')),
             reverse=True
         )
+        
+        # remove temporary sort field
+        for article in articles:
+            article.pop('_sort_date', None)
         
         return articles
         
