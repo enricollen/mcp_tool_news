@@ -2,7 +2,7 @@
 simple mcp server for rss parsing
 """
 
-from mcp.server.fastmcp import FastMCP
+from fastmcp import FastMCP
 from rss_parser import RSSParser
 from requests import get
 from typing import List, Dict, Any
@@ -397,10 +397,10 @@ Then provide:
 Provide a professional media analysis suitable for journalists, researchers, or media professionals.
 """
 
-# export the mcp instance for cloud deployment
+"""# export the mcp instance for cloud deployment
 __all__ = ["mcp"]
 
 if __name__ == "__main__":
     # run the server locally
     print("Starting RSS feed MCP server...")
-    mcp.run()
+    mcp.run()"""
