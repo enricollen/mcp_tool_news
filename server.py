@@ -110,7 +110,7 @@ def get_all_feeds():
         "total_feeds": sum(len(category["feeds"]) for category in RSS_FEEDS.values())
     }
 
-@mcp.tool()
+@mcp.tool
 def parse_rss_feed(url: str = "https://xml2.corriereobjects.it/feed-hp/homepage.xml", limit: int = 10) -> Dict[str, Any]:
     """
     parse rss feed and return structured data
@@ -162,7 +162,7 @@ def parse_rss_feed(url: str = "https://xml2.corriereobjects.it/feed-hp/homepage.
     except Exception as e:
         return {"error": f"failed to parse rss feed: {str(e)}"}
 
-@mcp.tool()
+@mcp.tool
 def get_feed_titles(url: str = "https://xml2.corriereobjects.it/feed-hp/homepage.xml", limit: int = 10) -> List[str]:
     """
     get just the titles from rss feed
@@ -195,7 +195,7 @@ def get_feed_titles(url: str = "https://xml2.corriereobjects.it/feed-hp/homepage
     except Exception as e:
         return [f"error: failed to get titles: {str(e)}"]
 
-@mcp.tool()
+@mcp.tool
 def get_formatted_feed(url: str = "https://xml2.corriereobjects.it/feed-hp/homepage.xml", limit: int = 10) -> List[str]:
     """
     get beautifully formatted feed summaries
@@ -234,7 +234,7 @@ def get_formatted_feed(url: str = "https://xml2.corriereobjects.it/feed-hp/homep
     except Exception as e:
         return [f"error: failed to get formatted feed: {str(e)}"]
 
-@mcp.tool()
+@mcp.tool
 def get_category_news(category: str = "italian_news", limit: int = 10, per_feed_limit: int = 3) -> List[str]:
     """
     get formatted news from a specific category of feeds
